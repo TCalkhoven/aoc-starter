@@ -1,102 +1,103 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { parseArgs } from "node:util";
 
-// Remove node and extract script and args
-const [script, ...args] = process.argv.slice(1);
+try {
+  const { day, part, isExample } = parseConfig();
 
-const config = parseCliOptions(args);
+  // Resolve paths relative to this script
+  const baseDir = import.meta.dirname;
+  const dayDir = path.resolve(baseDir, `day${day}`);
+  const inputFile = path.resolve(
+    dayDir,
+    isExample ? "example.txt" : "input.txt"
+  );
 
-const pathname = path.resolve(path.dirname(script), `day${config.day}`);
-const input = path.resolve(
-  pathname,
-  config.example ? "example.txt" : "input.txt"
-);
+  console.log(`> Running Day ${day}`, isExample ? "(Example Input)" : "");
 
-let parts = [];
-if (config.part === 0) {
-  parts = [1, 2];
-} else {
-  parts = [config.part];
+  // Check if day directory exists
+  try {
+    await fs.access(dayDir);
+  } catch {
+    throw new Error(`Directory for day ${day} does not exist at ${dayDir}`);
+  }
+
+  // Read input file once
+  let input;
+  try {
+    input = await fs.readFile(inputFile, "utf8");
+  } catch {
+    throw new Error(`Input file not found: ${inputFile}`);
+  }
+
+  const partsToRun = part ? [part] : [1, 2];
+
+  for (const p of partsToRun) {
+    await runPart(dayDir, p, input);
+  }
+} catch (error) {
+  const message = error instanceof Error ? error.message : String(error);
+  console.error(`\x1b[31mError:\x1b[0m ${message}`);
+  process.exit(1);
 }
 
-console.log(`> Running Day ${config.day}`);
-for (const part of parts) {
-  console.log(`\n> Executing part ${part}...`);
-  const target = path.resolve(pathname, `part${part}.js`);
+/**
+ * @param {string} dayDir
+ * @param {number} partNum
+ * @param {string} input
+ */
+async function runPart(dayDir, partNum, input) {
+  console.log(`\n> Executing part ${partNum}...`);
+  const scriptPath = path.resolve(dayDir, `part${partNum}.js`);
+
   try {
-    await fs.access(target);
+    await fs.access(scriptPath);
   } catch {
-    console.error(`Part ${part} for day ${config.day} does not exist.`);
-    process.exit(1);
+    console.warn(`  Skipping: ${scriptPath} not found.`);
+    return;
   }
 
-  const { default: execute } = await import(target);
-  if (typeof execute !== "function") {
-    throw new Error(`${target} must export a default function`);
+  const module = await import(scriptPath);
+  if (typeof module.default !== "function") {
+    throw new Error(`part${partNum}.js must export a default function.`);
   }
 
-  const result = await execute(await fs.readFile(input, "utf8"));
+  const result = await module.default(input);
   if (result !== undefined) {
     console.log(result);
   }
 }
 
-process.exit(0);
+function parseConfig() {
+  const { values, positionals } = parseArgs({
+    options: {
+      part: { type: "string" },
+      example: { type: "boolean" },
+    },
+    allowPositionals: true,
+  });
 
-/**
- *
- * @param {string[]} argv
- * @returns {{ day: number, part: number, example: boolean }}
- */
-function parseCliOptions(argv) {
-  if (argv.length < 1) {
-    console.error(
-      "Not enough arguments provided. Expected `day <number> [--part <number>] [--example]`"
-    );
-    process.exit(1);
+  if (positionals.length === 0) {
+    throw new Error("Please provide a day number (e.g., `node day 1`)");
   }
 
-  const [argument, ...options] = argv;
-  const day = parseInt(argument);
+  const day = parseInt(positionals[0], 10);
   if (isNaN(day)) {
-    console.error(`Invalid day number: ${argument}`);
-    process.exit(1);
+    throw new Error(`Invalid day number: ${positionals[0]}`);
   }
 
-  let config = { day: day, part: 0, example: false };
-  if (options.length === 0) {
-    return config;
-  }
-
-  for (let i = 0; i < options.length; i++) {
-    const arg = options[i];
-
-    switch (arg) {
-      case "--part":
-        if (i + 1 === options.length) {
-          console.error(
-            `Invalid argument ${arg}: \`Expected ${arg} <value>.\``
-          );
-          process.exit(1);
-        }
-
-        const val = parseInt(options[i + 1]);
-        if (Number.isNaN(val)) {
-          console.error(
-            `Invalid value ${arg}=${val}: \`Expected ${arg} <number>.\``
-          );
-          process.exit(1);
-        }
-
-        config.part = val;
-        // Skip val iteration
-        i++;
-        break;
-      case "--example":
-        config.example = true;
-        break;
+  let part = null;
+  if (values.part) {
+    const parsed = parseInt(values.part, 10);
+    if (Number.isNaN(parsed)) {
+      throw new Error(`Invalid part number: ${values.part}`);
     }
+    part = parsed;
   }
 
-  return config;
+  return {
+    day,
+    part,
+    isExample: values.example || false,
+  };
 }
