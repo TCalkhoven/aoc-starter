@@ -20,7 +20,7 @@ To set up the folder structure and files for a new day, run:
 node new-day
 ```
 
-This will create a new directory for the next available day (e.g., `day01`, `day02`, etc.) with the necessary files.
+This will create a new directory for the next available day (e.g., `day1`, `day2`, etc.) with the necessary files.
 
 ### Run Solutions
 
@@ -51,7 +51,7 @@ node day 3 --example
 
 ## File Structure
 
-For each day (e.g., `day01`), the following files are created:
+For each day (e.g., `day1`), the following files are created:
 
 *   `example.txt`: Paste the example input from the puzzle description here.
 *   `input.txt`: Paste your unique puzzle input here.
