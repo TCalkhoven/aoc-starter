@@ -7,22 +7,41 @@ const [script, ...args] = process.argv.slice(1);
 const config = parseCliOptions(args);
 
 const pathname = path.resolve(path.dirname(script), `day${config.day}`);
-const target = path.resolve(pathname, `part${config.part}.js`);
 const input = path.resolve(
   pathname,
   config.example ? "example.txt" : "input.txt"
 );
 
-const { default: execute } = await import(target);
-if (typeof execute !== "function") {
-  throw new Error(`${target} must export a default function`);
+let parts = [];
+if (config.part === 0) {
+  parts = [1, 2];
+} else {
+  parts = [config.part];
 }
 
-const result = await execute(await fs.readFile(input, "utf8"));
-if (result !== undefined) {
-  console.log(result);
-  process.exit(0);
+console.log(`> Running Day ${config.day}`);
+for (const part of parts) {
+  console.log(`\n> Executing part ${part}...`);
+  const target = path.resolve(pathname, `part${part}.js`);
+  try {
+    await fs.access(target);
+  } catch {
+    console.error(`Part ${part} for day ${config.day} does not exist.`);
+    process.exit(1);
+  }
+
+  const { default: execute } = await import(target);
+  if (typeof execute !== "function") {
+    throw new Error(`${target} must export a default function`);
+  }
+
+  const result = await execute(await fs.readFile(input, "utf8"));
+  if (result !== undefined) {
+    console.log(result);
+  }
 }
+
+process.exit(0);
 
 /**
  *
@@ -44,7 +63,7 @@ function parseCliOptions(argv) {
     process.exit(1);
   }
 
-  let config = { day: day, part: 1, example: false };
+  let config = { day: day, part: 0, example: false };
   if (options.length === 0) {
     return config;
   }
