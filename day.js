@@ -36,7 +36,8 @@ try {
     await runPart(dayDir, p, input);
   }
 } catch (error) {
-  const message = error instanceof Error ? error.message : String(error);
+  const message =
+    error instanceof Error ? error.stack || error.message : String(error);
   console.error(`\x1b[31mError:\x1b[0m ${message}`);
   process.exit(1);
 }
